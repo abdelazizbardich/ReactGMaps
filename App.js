@@ -10,9 +10,9 @@ import React from 'react';
 import { SafeAreaView,  StyleSheet} from 'react-native';
 import MapView,{Marker} from 'react-native-maps';
 import { io } from "socket.io-client";
-import { getUsers } from './services/userService';
+import axios from 'axios';
 import GetLocation from 'react-native-get-location';
-
+const baseUrl = 'http://192.168.1.131:3000';
 const socket = io('ws://192.168.1.131:3000');
 
 // App start
@@ -20,19 +20,19 @@ const App = () => {
   const [users, setUsers] = React.useState([])
   const [latitude, setLatitude] = React.useState(0);
   const [longitude, setLongitude] = React.useState(0);
-
-
+  // watch for user localization changes and update the users list
   socket.on("newMapData", (args) => {
-    // console.log("====> new user data",args);
     const newUsers = users.map(user => {
+      // if the user is in the list, update the user's location
       if (user.id === args.id) {
         user.localization = args.localization;
       }
       return user;
     });
-    console.log("====> new users",newUsers);
+    // update the users list
     setUsers(newUsers);
   });
+
   React.useEffect( () => {
     const fetchData = async () => {
       // Get current user location
@@ -40,12 +40,11 @@ const App = () => {
       setLatitude(getLocationData.latitude);
       setLongitude(getLocationData.longitude);
       // Get users from server
-      const usersData = await getUsers();
+      const usersData = await axios.get(`${baseUrl}/users`);
       setUsers(usersData.data);
       
     }
     fetchData().catch(err => console.log(err));
-    // reset data if updated by socket event
   }, [setLatitude, setLongitude]);
 
 
