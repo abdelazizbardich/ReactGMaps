@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { SafeAreaView,  StyleSheet} from 'react-native';
+import { SafeAreaView,  StyleSheet,View,Button,TouchableOpacity,Text, Alert} from 'react-native';
 import MapView,{Marker} from 'react-native-maps';
 import { io } from "socket.io-client";
 import axios from 'axios';
@@ -20,6 +20,10 @@ const App = () => {
   const [users, setUsers] = React.useState([])
   const [latitude, setLatitude] = React.useState(0);
   const [longitude, setLongitude] = React.useState(0);
+  const [latitudeDelta, setLatitudeDelta] = React.useState(0.0922);
+  const [longitudeDelta, setLongitudeDelta] = React.useState(0.0421);
+  const [updatedPosition, setUpdatedPosition] = React.useState(null);
+
   // watch for user localization changes and update the users list
   socket.on("newMapData", (args) => {
     const newUsers = users.map(user => {
@@ -47,23 +51,110 @@ const App = () => {
     fetchData().catch(err => console.log(err));
   }, [setLatitude, setLongitude]);
 
+  const  renderMap = () => {
+    return (
+        <SafeAreaView >
+          <MapView 
+            style={styles.map}
+            initialRegion={{ latitude: latitude, longitude: longitude, latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta}} 
+            region={{ latitude: latitude, longitude: longitude, latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta}}
+            onRegionChangeComplete={updateRegion}
+            >
+              {users && users.map((user,index) => (
+                <Marker  key={index} coordinate={{latitude: user.localization.latitude,longitude: user.localization.longitude}} title={"user.title"} description={"user.description"}>
+                </Marker>
+              ))}
+            </MapView>
+            {/* Zooms */}
+            <TouchableOpacity style={styles.zoomIn} onPress={zoomIn}><Text style={{fontSize:20}}>-</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.zoomOut} onPress={zoomOut}><Text style={{fontSize:20}}>+</Text></TouchableOpacity>
+            {/* return to current location */}
+            <TouchableOpacity style={styles.currentLocation} onPress={returnToCurrentLocation}><Text style={{fontSize:20}}>x</Text></TouchableOpacity>
+        </SafeAreaView>
+    )
+  }
 
+  // Zooms
+  const zoomIn = () => {
+      setLatitudeDelta(latitudeDelta + 0.01);
+      setLongitudeDelta(longitudeDelta + 0.01);
+  }
+  const zoomOut = ()=>{
+      setLatitudeDelta(latitudeDelta - 0.01);
+      setLongitudeDelta(longitudeDelta - 0.01);
+  }
+
+  // return to current location
+  let loading = false;
+  const returnToCurrentLocation = async ()=> {
+    if(!loading){
+      try {
+        const getLocationData = await GetLocation.getCurrentPosition({enableHighAccuracy: true,timeout: 15000});
+        setLatitude(getLocationData.latitude);
+        setLongitude(getLocationData.longitude);
+      } catch (error) {
+          Alert.alert("Can't access localization service, try again");
+      }
+    }else{
+      Alert.alert("Loading localization...");
+    }
+    
+  }
+
+  // Update region
+  const updateRegion = (event) => {
+    setLatitude(event.latitude);
+    setLongitude(event.longitude);
+  }
+      
+
+  // Redner the app
   return (
-    <SafeAreaView>
-        <MapView 
-        style={styles.map} 
-        initialRegion={{ latitude: latitude, longitude: longitude, latitudeDelta: 0.0922, longitudeDelta: 0.0421}} 
-        region={{ latitude: latitude, longitude: longitude, latitudeDelta: 0.0922, longitudeDelta: 0.0421}}>
-          {users && users.map((user,index) => (
-            <Marker key={index} coordinate={{latitude: user.localization.latitude,longitude: user.localization.longitude}} title={"user.title"} description={"user.description"}/>
-          ))}
-          </MapView>
-    </SafeAreaView>
+    renderMap()
   );
 };
 
 const styles = StyleSheet.create({
-  map:{backgroundColor: 'gray',width: '100%',height: '100%',}
+  map:{width: '100%',height: '100%'},
+  currentLocation:{
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    bottom: '5%',
+    right: 10,
+    backgroundColor: '#fff',
+    borderRadius: 100,
+    borderWidth:3,
+    borderColor:'#eee'
+  },
+  zoomIn:{
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    top: '55%',
+    right: 10,
+    backgroundColor: '#fff',
+    borderRadius: 100,
+    borderWidth:3,
+    borderColor:'#eee'
+  },
+  zoomOut:{
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 50,
+    height: 50,
+    top: '45%',
+    right: 10,
+    backgroundColor: '#fff',
+    borderRadius: 100,
+    borderWidth:3,
+    borderColor:'#eee'
+  }
 });
 
 export default App;
